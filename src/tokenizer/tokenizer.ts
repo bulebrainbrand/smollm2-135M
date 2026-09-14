@@ -7,7 +7,6 @@
  * with the `u` flag) and `TextEncoder`/`TextDecoder`.
  */
 
-import { PlainHashBlockDataMap } from "../blockdata/plainHashBlockDataMap";
 import { HashBlockDataMap } from "../blockdata/types";
 import { decode } from "./decode";
 import { encode } from "./encode";

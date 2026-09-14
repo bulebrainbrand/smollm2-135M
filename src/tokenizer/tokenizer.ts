@@ -7,23 +7,9 @@
  * with the `u` flag) and `TextEncoder`/`TextDecoder`.
  */
 
-type Vocab = Record<string, number>;
-type MergeRule = [string, string];
-
-interface AddedToken {
-  id: number;
-  content: string;
-  special: boolean;
-}
-
-interface TokenizerJson {
-  model: {
-    type: string;
-    vocab: Vocab;
-    merges: string[] | MergeRule[];
-  };
-  added_tokens?: AddedToken[];
-}
+import { HashBlockDataMap } from "../blockdata/hashMap";
+import { decode } from "./decode";
+import { encode } from "./encode";
 
 /**
  * GPT-2's byte <-> printable-unicode-char mapping.
@@ -66,24 +52,20 @@ function escapeRegExp(s: string): string {
 }
 
 export class BPETokenizer {
-  private readonly encoder: Map<string, number>;
-  private readonly decoder: Map<number, string>;
-  private readonly bpeRanks: Map<string, number>;
   private readonly byteEncoder: Map<number, string>;
   private readonly byteDecoder: Map<string, number>;
   private readonly cache = new Map<string, string>();
   private readonly specialTokenToId: Map<string, number>;
   private readonly idToSpecialToken: Map<number, string>;
   private readonly specialSplitRegex: RegExp | null;
+  private readonly maxCacheSize: number = 1024;
 
   constructor(
-    vocab: Vocab,
-    merges: MergeRule[],
+    private readonly encoder: HashBlockDataMap,
+    private readonly decoder: HashBlockDataMap,
+    private readonly merges: HashBlockDataMap,
     specialTokens: Array<{ id: number; content: string }> = [],
   ) {
-    this.encoder = new Map(Object.entries(vocab));
-    this.decoder = new Map([...this.encoder].map(([tok, id]) => [id, tok]));
-    this.bpeRanks = new Map(merges.map(([a, b], i) => [a + "\u0001" + b, i]));
     this.byteEncoder = bytesToUnicode();
     this.byteDecoder = new Map([...this.byteEncoder].map(([b, c]) => [c, b]));
 
@@ -106,20 +88,6 @@ export class BPETokenizer {
     }
   }
 
-  /** Build directly from a parsed `tokenizer.json` (fast-tokenizer format). */
-  static fromTokenizerJson(json: TokenizerJson): BPETokenizer {
-    if (json.model.type !== "BPE") {
-      throw new Error(`Unsupported tokenizer model type: ${json.model.type}`);
-    }
-    const merges: MergeRule[] = json.model.merges.map((m) =>
-      typeof m === "string" ? (m.split(" ") as MergeRule) : m,
-    );
-    const special = (json.added_tokens ?? [])
-      .filter((t) => t.special)
-      .map((t) => ({ id: t.id, content: t.content }));
-    return new BPETokenizer(json.model.vocab, merges, special);
-  }
-
   private getPairs(word: string[]): Array<[string, string]> {
     const pairs: Array<[string, string]> = [];
     for (let i = 0; i < word.length - 1; i++)
@@ -128,13 +96,15 @@ export class BPETokenizer {
   }
 
   /** Run BPE merges on a single byte-mapped "word", returns space-joined subwords. */
-  private bpe(token: string): string {
+  private *bpe(token: string): Generator<undefined, string, unknown> {
     const cached = this.cache.get(token);
     if (cached !== undefined) return cached;
 
     let word = Array.from(token);
     if (word.length <= 1) {
-      this.cache.set(token, token);
+      if (this.cache.size < this.maxCacheSize) {
+        this.cache.set(token, token);
+      }
       return token;
     }
 
@@ -143,8 +113,9 @@ export class BPETokenizer {
       let minRank = Infinity;
       let minPair: [string, string] | null = null;
       for (const p of pairs) {
-        const rank = this.bpeRanks.get(p[0] + "\u0001" + p[1]);
-        if (rank !== undefined && rank < minRank) {
+        const rankText = yield* this.merges.read(p[0] + "\u0001" + p[1]);
+        const rank = rankText === undefined ? undefined : Number(rankText);
+        if (rank !== undefined && Number.isFinite(rank) && rank < minRank) {
           minRank = rank;
           minPair = p;
         }
@@ -180,28 +151,35 @@ export class BPETokenizer {
     }
 
     const result = word.join(" ");
-    this.cache.set(token, result);
+    if (this.cache.size < this.maxCacheSize) {
+      this.cache.set(token, result);
+    }
+
     return result;
   }
 
-  private encodeChunk(text: string, ids: number[]): void {
-    const unkId = this.encoder.get("<|endoftext|>");
+  private *encodeChunk(
+    text: string,
+    ids: number[],
+  ): Generator<undefined, void, unknown> {
+    const unkId = yield* this.encoder.read("<|endoftext|>");
     for (const m of text.matchAll(PRETOKENIZE_PATTERN)) {
       const chunk = m[0];
-      const bytes = new TextEncoder().encode(chunk);
+      const bytes = encode(chunk);
       let mapped = "";
       for (const b of bytes) mapped += this.byteEncoder.get(b);
 
-      for (const tok of this.bpe(mapped).split(" ")) {
-        const id = this.encoder.get(tok);
-        if (id !== undefined) ids.push(id);
-        else if (unkId !== undefined) ids.push(unkId);
+      const bpeResult = yield* this.bpe(mapped);
+      for (const tok of bpeResult.split(" ")) {
+        const id = yield* this.encoder.read(tok);
+        if (id !== undefined) ids.push(Number(id));
+        else if (unkId !== undefined) ids.push(Number(unkId));
       }
     }
   }
 
   /** Text -> token ids. Special tokens (e.g. `<|im_start|>`) are matched verbatim. */
-  encode(text: string): number[] {
+  *encode(text: string): Generator<undefined, number[], unknown> {
     const ids: number[] = [];
     const segments = this.specialSplitRegex
       ? text.split(this.specialSplitRegex)
@@ -211,14 +189,14 @@ export class BPETokenizer {
       if (this.specialTokenToId.has(seg)) {
         ids.push(this.specialTokenToId.get(seg)!);
       } else {
-        this.encodeChunk(seg, ids);
+        yield* this.encodeChunk(seg, ids);
       }
     }
     return ids;
   }
 
   /** Token ids -> text. */
-  decode(ids: number[], skipSpecialTokens = false): string {
+  *decode(ids: number[], skipSpecialTokens = false) {
     let mapped = "";
     for (const id of ids) {
       const special = this.idToSpecialToken.get(id);
@@ -226,17 +204,13 @@ export class BPETokenizer {
         if (!skipSpecialTokens) mapped += special;
         continue;
       }
-      mapped += this.decoder.get(id) ?? "";
+      mapped += (yield* this.decoder.read(String(id))) ?? "";
     }
     const bytes: number[] = [];
     for (const ch of mapped) {
       const b = this.byteDecoder.get(ch);
       if (b !== undefined) bytes.push(b);
     }
-    return new TextDecoder("utf-8").decode(new Uint8Array(bytes));
-  }
-
-  get vocabSize(): number {
-    return this.encoder.size;
+    return decode(new Uint8Array(bytes));
   }
 }

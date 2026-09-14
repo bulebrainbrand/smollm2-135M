@@ -7,7 +7,8 @@
  * with the `u` flag) and `TextEncoder`/`TextDecoder`.
  */
 
-import { HashBlockDataMap } from "../blockdata/hashMap";
+import { PlainHashBlockDataMap } from "../blockdata/plainHashBlockDataMap";
+import { HashBlockDataMap } from "../blockdata/types";
 import { decode } from "./decode";
 import { encode } from "./encode";
 
@@ -61,9 +62,9 @@ export class BPETokenizer {
   private readonly maxCacheSize: number = 1024;
 
   constructor(
-    private readonly encoder: HashBlockDataMap,
-    private readonly decoder: HashBlockDataMap,
-    private readonly merges: HashBlockDataMap,
+    private readonly encoder: HashBlockDataMap<string | undefined>,
+    private readonly decoder: HashBlockDataMap<string | undefined>,
+    private readonly merges: HashBlockDataMap<string | undefined>,
     specialTokens: Array<{ id: number; content: string }> = [],
   ) {
     this.byteEncoder = bytesToUnicode();

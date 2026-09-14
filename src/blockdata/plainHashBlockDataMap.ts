@@ -1,6 +1,9 @@
 import { readData } from "./readData";
+import { HashBlockDataMap } from "./types";
 
-export class HashBlockDataMap {
+export class PlainHashBlockDataMap implements HashBlockDataMap<
+  string | undefined
+> {
   /**
    * expect pos1 < pos2
    * @param pos1

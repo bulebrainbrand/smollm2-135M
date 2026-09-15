@@ -1,8 +1,11 @@
-import { decode as decodeSafe32, encode as encodeSafe32 } from "../safe32";
-import { decode as decodeUnicode } from "../tokenizer/decode";
-import { encode as encodeUnicode } from "../tokenizer/encode";
-import { JSONHashBlockDataMap } from "./jsonHashBlockDataMap";
-import type { HashBlockDataMap } from "./types";
+import {
+  decode as decodeSafe32,
+  encode as encodeSafe32,
+} from "../safe32/index.ts";
+import { decode as decodeUnicode } from "../tokenizer/decode.ts";
+import { encode as encodeUnicode } from "../tokenizer/encode.ts";
+import { JSONHashBlockDataMap } from "./jsonHashBlockDataMap.ts";
+import type { HashBlockDataMap } from "./types.ts";
 /**
  * keyのunicodeをsafe32エンコードし、それでデータを引き、その結果をsafe32decodeする
  */

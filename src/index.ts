@@ -1,11 +1,11 @@
-import { JSONHashBlockDataMap } from "./blockdata/jsonHashBlockDataMap";
-import { PlainHashBlockDataMap } from "./blockdata/plainHashBlockDataMap";
+import { JSONHashBlockDataMap } from "./blockdata/jsonHashBlockDataMap.ts";
+import { PlainHashBlockDataMap } from "./blockdata/plainHashBlockDataMap.ts";
 import {
   KeySafe32JSONHashBlockDataMap,
   ValueSafe32JSONHashBlockDataMap,
-} from "./blockdata/safe32JSONHashBlockDataMap";
-import { BPETokenizer } from "./tokenizer/tokenizer";
-export type a = bigint;
+} from "./blockdata/safe32JSONHashBlockDataMap.ts";
+import { BPETokenizer } from "./tokenizer/tokenizer.ts";
+
 const tokenizer = new BPETokenizer(
   // @ts-expect-error numberしか返さないと約束しよう
   new KeySafe32JSONHashBlockDataMap(

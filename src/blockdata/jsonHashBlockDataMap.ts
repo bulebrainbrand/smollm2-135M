@@ -1,5 +1,5 @@
-import { PlainHashBlockDataMap } from "./plainHashBlockDataMap";
-import type { HashBlockDataMap } from "./types";
+import { PlainHashBlockDataMap } from "./plainHashBlockDataMap.ts";
+import type { HashBlockDataMap } from "./types.ts";
 
 export class JSONHashBlockDataMap implements HashBlockDataMap<
   string | number | boolean | object | null | undefined

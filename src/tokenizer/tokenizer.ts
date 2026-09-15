@@ -7,9 +7,9 @@
  * with the `u` flag) and `TextEncoder`/`TextDecoder`.
  */
 
-import { type HashBlockDataMap } from "../blockdata/types";
-import { decode } from "./decode";
-import { encode } from "./encode";
+import { type HashBlockDataMap } from "../blockdata/types.ts";
+import { decode } from "./decode.ts";
+import { encode } from "./encode.ts";
 
 /**
  * GPT-2's byte <-> printable-unicode-char mapping.

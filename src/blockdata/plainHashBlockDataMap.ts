@@ -1,6 +1,8 @@
 import { readData, writeData } from "./dataIO.ts";
 import type { HashBlockDataMap } from "./types.ts";
-
+/**
+ * [pos1,pos2)
+ */
 export class PlainHashBlockDataMap implements HashBlockDataMap<
   string | undefined
 > {

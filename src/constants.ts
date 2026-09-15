@@ -7,7 +7,7 @@
 export const ENCODE_DATA_POS = {
   pos1: [32 * 3, 32 * 3, 32 * 3],
   pos2: [32 * 7, 32 * 7, 32 * 7],
-};
+} as const;
 /**
  * x:[224,352)
  * y:[96,224)
@@ -17,7 +17,7 @@ export const ENCODE_DATA_POS = {
 export const DECODE_DATA_POS = {
   pos1: [32 * 7, 32 * 3, 32 * 3],
   pos2: [32 * 11, 32 * 7, 32 * 7],
-};
+} as const;
 /**
  * x:[352,448)
  * y:[96,224)
@@ -27,4 +27,4 @@ export const DECODE_DATA_POS = {
 export const MERGE_DATA_POS = {
   pos1: [32 * 11, 32 * 3, 32 * 3],
   pos2: [32 * 14, 32 * 7, 32 * 7],
-};
+} as const;

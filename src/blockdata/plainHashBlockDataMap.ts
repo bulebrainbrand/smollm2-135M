@@ -6,14 +6,17 @@ import type { HashBlockDataMap } from "./types.ts";
 export class PlainHashBlockDataMap implements HashBlockDataMap<
   string | undefined
 > {
-  private readonly pos1: [number, number, number];
-  private readonly pos2: [number, number, number];
+  private readonly pos1: Readonly<[number, number, number]>;
+  private readonly pos2: Readonly<[number, number, number]>;
   /**
    * expect pos1 < pos2
    * @param pos1
    * @param pos2
    */
-  constructor(pos1: [number, number, number], pos2: [number, number, number]) {
+  constructor(
+    pos1: Readonly<[number, number, number]>,
+    pos2: Readonly<[number, number, number]>,
+  ) {
     this.pos1 = pos1;
     this.pos2 = pos2;
   }

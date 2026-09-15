@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@bloxdjs/schematic": "^0.1.3",
+    "@bloxdjs/schematic": "^0.1.4",
     "@types/node": "^26.5.1"
   },
   "type": "module"

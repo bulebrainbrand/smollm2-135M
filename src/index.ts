@@ -4,172 +4,96 @@ import {
   KeySafe32JSONHashBlockDataMap,
   ValueSafe32JSONHashBlockDataMap,
 } from "./blockdata/safe32JSONHashBlockDataMap.ts";
+import { queueGenerator, update } from "./eventLoop.ts";
+import { decodeData, encodeData, mergesData } from "./main.ts";
+import { data } from "./temp/data.ts";
 import { BPETokenizer } from "./tokenizer/tokenizer.ts";
+tick = () => {
+  update();
+};
 
-const tokenizer = new BPETokenizer(
-  // @ts-expect-error numberしか返さないと約束しよう
-  new KeySafe32JSONHashBlockDataMap(
-    new JSONHashBlockDataMap(new PlainHashBlockDataMap([0, 0, 0], [0, 0, 0])),
-  ),
-  new ValueSafe32JSONHashBlockDataMap(
-    new JSONHashBlockDataMap(new PlainHashBlockDataMap([0, 0, 0], [0, 0, 0])),
-  ),
-  new KeySafe32JSONHashBlockDataMap(
-    new JSONHashBlockDataMap(new PlainHashBlockDataMap([0, 0, 0], [0, 0, 0])),
-  ),
-  [
-    {
-      id: 0,
-      content: "<|endoftext|>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 1,
-      content: "<|im_start|>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 2,
-      content: "<|im_end|>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 3,
-      content: "<repo_name>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 4,
-      content: "<reponame>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 5,
-      content: "<file_sep>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 6,
-      content: "<filename>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 7,
-      content: "<gh_stars>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 8,
-      content: "<issue_start>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 9,
-      content: "<issue_comment>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 10,
-      content: "<issue_closed>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 11,
-      content: "<jupyter_start>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 12,
-      content: "<jupyter_text>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 13,
-      content: "<jupyter_code>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 14,
-      content: "<jupyter_output>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 15,
-      content: "<jupyter_script>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-    {
-      id: 16,
-      content: "<empty_output>",
-      single_word: false,
-      lstrip: false,
-      rstrip: false,
-      normalized: false,
-      special: true,
-    },
-  ],
+queueGenerator(
+  (function* () {
+    let c = 0;
+    for (const key of Object.keys(data)) {
+      if (c++ % 100 === 0) console.log(c);
+      const value = data[key];
+      yield* encodeData.write(key, value);
+      yield* decodeData.write(String(value), key);
+    }
+    for (let i = 0; i < 20; i++) {
+      yield;
+    }
+  })(),
 );
+
+const tokenizer = new BPETokenizer(encodeData, decodeData, mergesData, [
+  {
+    id: 0,
+    content: "<|endoftext|>",
+  },
+  {
+    id: 1,
+    content: "<|im_start|>",
+  },
+  {
+    id: 2,
+    content: "<|im_end|>",
+  },
+  {
+    id: 3,
+    content: "<repo_name>",
+  },
+  {
+    id: 4,
+    content: "<reponame>",
+  },
+  {
+    id: 5,
+    content: "<file_sep>",
+  },
+  {
+    id: 6,
+    content: "<filename>",
+  },
+  {
+    id: 7,
+    content: "<gh_stars>",
+  },
+  {
+    id: 8,
+    content: "<issue_start>",
+  },
+  {
+    id: 9,
+    content: "<issue_comment>",
+  },
+  {
+    id: 10,
+    content: "<issue_closed>",
+  },
+  {
+    id: 11,
+    content: "<jupyter_start>",
+  },
+  {
+    id: 12,
+    content: "<jupyter_text>",
+  },
+  {
+    id: 13,
+    content: "<jupyter_code>",
+  },
+  {
+    id: 14,
+    content: "<jupyter_output>",
+  },
+  {
+    id: 15,
+    content: "<jupyter_script>",
+  },
+  {
+    id: 16,
+    content: "<empty_output>",
+  },
+]);

@@ -25,8 +25,8 @@ export class JSONHashBlockDataMap implements HashBlockDataMap<
     value: string | number | boolean | object | null | undefined,
   ): Generator<undefined, void, unknown> {
     const result = yield* this.plainHashBlockDataMap.read(key);
-    if (result === undefined) return undefined;
-    const json = JSON.parse(result)[key];
-    return json;
+    const json = result === undefined ? {} : JSON.parse(result);
+    json[key] = value;
+    yield* this.plainHashBlockDataMap.write(key, JSON.stringify(json));
   }
 }

@@ -2,14 +2,17 @@ import { decode as decodeSafe32, encode as encodeSafe32 } from "../safe32";
 import { decode as decodeUnicode } from "../tokenizer/decode";
 import { encode as encodeUnicode } from "../tokenizer/encode";
 import { JSONHashBlockDataMap } from "./jsonHashBlockDataMap";
-import { HashBlockDataMap } from "./types";
+import type { HashBlockDataMap } from "./types";
 /**
  * keyのunicodeをsafe32エンコードし、それでデータを引き、その結果をsafe32decodeする
  */
 export class Safe32JSONHashBlockDataMap implements HashBlockDataMap<
   string | undefined
 > {
-  constructor(private readonly JSONHashBlockDataMap: JSONHashBlockDataMap) {}
+  private readonly JSONHashBlockDataMap: JSONHashBlockDataMap;
+  constructor(JSONHashBlockDataMap: JSONHashBlockDataMap) {
+    this.JSONHashBlockDataMap = JSONHashBlockDataMap;
+  }
   *read(key: string): Generator<undefined, string | undefined, unknown> {
     const safe32Key = encodeSafe32(encodeUnicode(key));
     const result = yield* this.JSONHashBlockDataMap.read(safe32Key);
@@ -25,7 +28,10 @@ export class Safe32JSONHashBlockDataMap implements HashBlockDataMap<
 export class KeySafe32JSONHashBlockDataMap implements HashBlockDataMap<
   string | number | boolean | object | null | undefined
 > {
-  constructor(private readonly JSONHashBlockDataMap: JSONHashBlockDataMap) {}
+  private readonly JSONHashBlockDataMap: JSONHashBlockDataMap;
+  constructor(JSONHashBlockDataMap: JSONHashBlockDataMap) {
+    this.JSONHashBlockDataMap = JSONHashBlockDataMap;
+  }
   *read(
     key: string,
   ): Generator<
@@ -42,7 +48,10 @@ export class KeySafe32JSONHashBlockDataMap implements HashBlockDataMap<
 export class ValueSafe32JSONHashBlockDataMap implements HashBlockDataMap<
   string | undefined
 > {
-  constructor(private readonly JSONHashBlockDataMap: JSONHashBlockDataMap) {}
+  private readonly JSONHashBlockDataMap: JSONHashBlockDataMap;
+  constructor(JSONHashBlockDataMap: JSONHashBlockDataMap) {
+    this.JSONHashBlockDataMap = JSONHashBlockDataMap;
+  }
   *read(key: string): Generator<undefined, string | undefined, unknown> {
     const result = yield* this.JSONHashBlockDataMap.read(key);
     if (result === undefined) return undefined;

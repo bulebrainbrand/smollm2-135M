@@ -7,7 +7,7 @@
  * with the `u` flag) and `TextEncoder`/`TextDecoder`.
  */
 
-import { HashBlockDataMap } from "../blockdata/types";
+import { type HashBlockDataMap } from "../blockdata/types";
 import { decode } from "./decode";
 import { encode } from "./encode";
 
@@ -52,6 +52,9 @@ function escapeRegExp(s: string): string {
 }
 
 export class BPETokenizer {
+  private readonly encoder: HashBlockDataMap<number | undefined>;
+  private readonly decoder: HashBlockDataMap<string | undefined>;
+  private readonly merges: HashBlockDataMap<number | undefined>;
   private readonly byteEncoder: Map<number, string>;
   private readonly byteDecoder: Map<string, number>;
   private readonly cache = new Map<string, string>();
@@ -61,11 +64,14 @@ export class BPETokenizer {
   private readonly maxCacheSize: number = 1024;
 
   constructor(
-    private readonly encoder: HashBlockDataMap<number | undefined>,
-    private readonly decoder: HashBlockDataMap<string | undefined>,
-    private readonly merges: HashBlockDataMap<number | undefined>,
+    encoder: HashBlockDataMap<number | undefined>,
+    decoder: HashBlockDataMap<string | undefined>,
+    merges: HashBlockDataMap<number | undefined>,
     specialTokens: Array<{ id: number; content: string }> = [],
   ) {
+    this.decoder = decoder;
+    this.encoder = encoder;
+    this.merges = merges;
     this.byteEncoder = bytesToUnicode();
     this.byteDecoder = new Map([...this.byteEncoder].map(([b, c]) => [c, b]));
 

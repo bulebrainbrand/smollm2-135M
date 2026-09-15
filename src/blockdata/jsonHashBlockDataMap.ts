@@ -1,10 +1,13 @@
 import { PlainHashBlockDataMap } from "./plainHashBlockDataMap";
-import { HashBlockDataMap } from "./types";
+import type { HashBlockDataMap } from "./types";
 
 export class JSONHashBlockDataMap implements HashBlockDataMap<
   string | number | boolean | object | null | undefined
 > {
-  constructor(private readonly plainHashBlockDataMap: PlainHashBlockDataMap) {}
+  private readonly plainHashBlockDataMap: PlainHashBlockDataMap;
+  constructor(plainHashBlockDataMap: PlainHashBlockDataMap) {
+    this.plainHashBlockDataMap = plainHashBlockDataMap;
+  }
   *read(
     key: string,
   ): Generator<

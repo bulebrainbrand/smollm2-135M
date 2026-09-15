@@ -23,6 +23,15 @@ export class Safe32JSONHashBlockDataMap implements HashBlockDataMap<
       );
     return decodeUnicode(decodeSafe32(result));
   }
+  *write(
+    key: string,
+    value: string | undefined,
+  ): Generator<undefined, void, unknown> {
+    const safe32Key = encodeSafe32(encodeUnicode(key));
+    const safe32Value =
+      value === undefined ? undefined : encodeSafe32(encodeUnicode(value));
+    yield* this.JSONHashBlockDataMap.write(safe32Key, safe32Value);
+  }
 }
 
 export class KeySafe32JSONHashBlockDataMap implements HashBlockDataMap<
@@ -43,6 +52,13 @@ export class KeySafe32JSONHashBlockDataMap implements HashBlockDataMap<
     const result = yield* this.JSONHashBlockDataMap.read(safe32Key);
     return result;
   }
+  *write(
+    key: string,
+    value: string | number | boolean | object | null | undefined,
+  ): Generator<undefined, void, unknown> {
+    const safe32Key = encodeSafe32(encodeUnicode(key));
+    yield* this.JSONHashBlockDataMap.write(safe32Key, value);
+  }
 }
 
 export class ValueSafe32JSONHashBlockDataMap implements HashBlockDataMap<
@@ -60,5 +76,13 @@ export class ValueSafe32JSONHashBlockDataMap implements HashBlockDataMap<
         "ValueSafe32JSONHashBlockMap.read can't parse non-string value",
       );
     return decodeUnicode(decodeSafe32(result));
+  }
+  *write(
+    key: string,
+    value: string | undefined,
+  ): Generator<undefined, void, unknown> {
+    const safe32Value =
+      value === undefined ? undefined : encodeSafe32(encodeUnicode(value));
+    yield* this.JSONHashBlockDataMap.write(key, safe32Value);
   }
 }

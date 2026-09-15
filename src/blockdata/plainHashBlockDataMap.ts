@@ -1,4 +1,4 @@
-import { readData } from "./readData.ts";
+import { readData, writeData } from "./dataIO.ts";
 import type { HashBlockDataMap } from "./types.ts";
 
 export class PlainHashBlockDataMap implements HashBlockDataMap<
@@ -22,6 +22,13 @@ export class PlainHashBlockDataMap implements HashBlockDataMap<
     const [x2, y2, z2] = this.pos2;
     const [x, y, z] = hashNumberToPos(hashNumber, x2 - x1, y2 - y1, z2 - z1);
     return yield* readData([x + x1, y + y1, z + z1]);
+  }
+  *write(key: string, value: string): Generator<undefined, void, unknown> {
+    const hashNumber = hash(key);
+    const [x1, y1, z1] = this.pos1;
+    const [x2, y2, z2] = this.pos2;
+    const [x, y, z] = hashNumberToPos(hashNumber, x2 - x1, y2 - y1, z2 - z1);
+    yield* writeData([x + x1, y + y1, z + z1], value);
   }
 }
 export const hashNumberToPos = (

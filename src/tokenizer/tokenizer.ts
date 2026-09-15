@@ -61,9 +61,9 @@ export class BPETokenizer {
   private readonly maxCacheSize: number = 1024;
 
   constructor(
-    private readonly encoder: HashBlockDataMap<string | undefined>,
+    private readonly encoder: HashBlockDataMap<number | undefined>,
     private readonly decoder: HashBlockDataMap<string | undefined>,
-    private readonly merges: HashBlockDataMap<string | undefined>,
+    private readonly merges: HashBlockDataMap<number | undefined>,
     specialTokens: Array<{ id: number; content: string }> = [],
   ) {
     this.byteEncoder = bytesToUnicode();
@@ -114,7 +114,7 @@ export class BPETokenizer {
       let minPair: [string, string] | null = null;
       for (const p of pairs) {
         const rankText = yield* this.merges.read(p[0] + "\u0001" + p[1]);
-        const rank = rankText === undefined ? undefined : Number(rankText);
+        const rank = rankText === undefined ? undefined : rankText;
         if (rank !== undefined && Number.isFinite(rank) && rank < minRank) {
           minRank = rank;
           minPair = p;
@@ -172,8 +172,8 @@ export class BPETokenizer {
       const bpeResult = yield* this.bpe(mapped);
       for (const tok of bpeResult.split(" ")) {
         const id = yield* this.encoder.read(tok);
-        if (id !== undefined) ids.push(Number(id));
-        else if (unkId !== undefined) ids.push(Number(unkId));
+        if (id !== undefined) ids.push(id);
+        else if (unkId !== undefined) ids.push(unkId);
       }
     }
   }

@@ -19,23 +19,13 @@ export class ByteCursor {
   }
 
   *_ensureChunkLoaded(charOffset: number) {
-    const spatialOffset = charOffset % this.manifest.spatial_chunk_size;
-    const spatialIndex = Math.floor(
-      charOffset / this.manifest.spatial_chunk_size,
-    );
-    const slot = Math.floor(spatialOffset / this.manifest.chunk_size);
-    const neededChunk =
-      spatialIndex * this.manifest.blocks_per_spatial_chunk + slot;
-    const chunkStart =
-      spatialIndex * this.manifest.spatial_chunk_size +
-      slot * this.manifest.chunk_size;
-
+    const neededChunk = Math.floor(charOffset / this.manifest.chunk_size);
     if (neededChunk !== this.chunkIndex) {
       const pos = this.coordFn(neededChunk);
       this.chunkText = (yield* readData(pos)) ?? "";
       this.chunkIndex = neededChunk;
     }
-    return charOffset - chunkStart;
+    return charOffset - neededChunk * this.manifest.chunk_size;
   }
 
   *readBytes(tensorOffset: number, length: number) {

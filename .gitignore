@@ -1,3 +1,6 @@
-/model
-/remote
-/node_modules
+model
+remote
+node_modules
+schematics
+node_modules
+out

@@ -119,7 +119,7 @@ export class BPETokenizer {
       let minRank = Infinity;
       let minPair: [string, string] | null = null;
       for (const p of pairs) {
-        const rankText = yield* this.merges.read(p[0] + "\u0001" + p[1]);
+        const rankText = yield* this.merges.read(p[0] + " " + p[1]);
         const rank = rankText === undefined ? undefined : rankText;
         if (rank !== undefined && Number.isFinite(rank) && rank < minRank) {
           minRank = rank;

@@ -78,7 +78,7 @@ const createBlockDataStr = (str: string) => {
     persisted: {
       shared: {
         text: str,
-        // uncensoredText: str,
+        uncensoredText: str,
         textSize: 0,
       },
       author: "ZlzvebAKbQPWuyiA8_08q",
@@ -118,14 +118,14 @@ const mergesRecord = Object.fromEntries(
 
 mkdirSync("./schematics", { recursive: true });
 // Record<number,safe32>
-recordToBuffer(decode, "decode", [32 * 8, 32 * 4, 32 * 4]).forEach(
+recordToBuffer(decode, "decode", [32 * 8, 32 * 8, 32 * 8]).forEach(
   (buffer, i) => writeFileSync(`./schematics/decode_${i}.bloxdschem`, buffer),
 );
 // Record<safe32,number>
-recordToBuffer(encode, "encode", [32 * 8, 32 * 4, 32 * 4]).forEach(
+recordToBuffer(encode, "encode", [32 * 8, 32 * 8, 32 * 8]).forEach(
   (buffer, i) => writeFileSync(`./schematics/encode_${i}.bloxdschem`, buffer),
 );
 // Record<safe32,number>
-recordToBuffer(mergesRecord, "merges", [32 * 8, 32 * 4, 32 * 4]).forEach(
+recordToBuffer(mergesRecord, "merges", [32 * 8, 32 * 8, 32 * 8]).forEach(
   (buffer, i) => writeFileSync(`./schematics/merges_${i}.bloxdschem`, buffer),
 );

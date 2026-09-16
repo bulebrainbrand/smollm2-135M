@@ -11,7 +11,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 const INPUT_PATH = "./out/weights_safe32.txt";
 const OUTPUT_DIR = "./schematics";
 const CODE_BLOCK_ID = 1510;
-const CODE_BLOCK_CHARS = 24_000;
+const CODE_BLOCK_CHARS = 36_000;
 const BLOCKS_PER_SPATIAL_CHUNK = 8;
 const SLOT_SPACING = 4;
 
@@ -32,14 +32,6 @@ const createBlockDataStr = (text: string) =>
 const encoded = readFileSync(INPUT_PATH, { encoding: "utf8" });
 if (encoded.length === 0) {
   throw new Error(`${INPUT_PATH} is empty`);
-}
-for (const ch of encoded) {
-  const code = ch.charCodeAt(0);
-  if (code < 0x21 || code > 0x40) {
-    throw new Error(
-      `Invalid safe32 character in ${INPUT_PATH}: ${JSON.stringify(ch)}`,
-    );
-  }
 }
 
 const codeBlockCount = Math.ceil(encoded.length / CODE_BLOCK_CHARS);

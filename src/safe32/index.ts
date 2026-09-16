@@ -3,6 +3,14 @@ const ALPHABET = Array.from({ length: 32 }, (_, i) =>
 );
 const REVERSE = new Map(ALPHABET.map((ch, i) => [ch, i]));
 
+export function decodeSymbol(ch: string): number {
+  const value = REVERSE.get(ch);
+  if (value === undefined) {
+    throw new Error(`Invalid safe32 character: ${JSON.stringify(ch)}`);
+  }
+  return value;
+}
+
 /**
  * バイト列をエンコードする。
  * @param {Uint8Array} bytes

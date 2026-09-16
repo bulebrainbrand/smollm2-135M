@@ -1,5 +1,6 @@
 "use worldcode";
 import { readData } from "./blockdata/dataIO.ts";
+import { decodeSymbol } from "./safe32/index.ts";
 import type { Manifest } from "./types.ts";
 
 export class ByteCursor {
@@ -17,45 +18,65 @@ export class ByteCursor {
     this.chunkText = "";
   }
 
-  *_ensureChunkLoaded(byteOffset: number) {
-    const charOffset = byteOffset * 3;
-    const neededChunk = Math.floor(charOffset / this.manifest.chunk_size);
+  *_ensureChunkLoaded(charOffset: number) {
+    const spatialOffset = charOffset % this.manifest.spatial_chunk_size;
+    const spatialIndex = Math.floor(
+      charOffset / this.manifest.spatial_chunk_size,
+    );
+    const slot = Math.floor(spatialOffset / this.manifest.chunk_size);
+    const neededChunk =
+      spatialIndex * this.manifest.blocks_per_spatial_chunk + slot;
+    const chunkStart =
+      spatialIndex * this.manifest.spatial_chunk_size +
+      slot * this.manifest.chunk_size;
+
     if (neededChunk !== this.chunkIndex) {
       const pos = this.coordFn(neededChunk);
-      this.chunkText = (yield* readData(pos)) ?? ""; // 境界を跨いだ時だけ読む
+      this.chunkText = (yield* readData(pos)) ?? "";
       this.chunkIndex = neededChunk;
     }
-    return charOffset - this.chunkIndex * this.manifest.chunk_size;
+    return charOffset - chunkStart;
   }
 
-  // tensor内オフセットからlengthバイト読む(チャンク境界跨ぎも対応)
   *readBytes(tensorOffset: number, length: number) {
     const out = new Uint8Array(length);
-    let remaining = length,
-      srcOffset = tensorOffset,
-      outIdx = 0;
+    let encodedCharOffset = Math.floor((tensorOffset * 8) / 5);
+    let skipBits = (tensorOffset * 8) % 5;
+    let bitBuffer = 0;
+    let bitCount = 0;
+    let outIdx = 0;
 
-    while (remaining > 0) {
-      const localPos = yield* this._ensureChunkLoaded(srcOffset);
-      const bytesLeftInChunk = Math.floor(
-        (this.chunkText.length - localPos) / 3,
-      );
-      const bytesToRead = Math.min(remaining, bytesLeftInChunk);
-      if (bytesToRead === 0) {
+    while (outIdx < length) {
+      const localPos = yield* this._ensureChunkLoaded(encodedCharOffset);
+      const charsLeftInChunk = this.chunkText.length - localPos;
+      if (charsLeftInChunk <= 0) {
         throw new Error(
-          `stalled read: chunk ${this.chunkIndex} exhausted at localPos=${localPos}, ` +
-            `remaining=${remaining}, srcOffset=${srcOffset}, chunkIndex:${this.chunkIndex}`,
+          `stalled safe32 read: chunk ${this.chunkIndex} exhausted at localPos=${localPos}, ` +
+            `encodedCharOffset=${encodedCharOffset}, targetLength=${length}`,
         );
       }
-      for (let i = 0; i < bytesToRead; i++) {
-        const p = localPos + i * 3;
-        out[outIdx++] =
-          (this.chunkText.charCodeAt(p) - 48) * 100 +
-          (this.chunkText.charCodeAt(p + 1) - 48) * 10 +
-          (this.chunkText.charCodeAt(p + 2) - 48);
+
+      for (
+        let i = 0;
+        i < charsLeftInChunk && outIdx < length;
+        i++, encodedCharOffset++
+      ) {
+        let value = decodeSymbol(this.chunkText[localPos + i]);
+        let valueBits = 5;
+        if (skipBits !== 0) {
+          value &= (1 << (5 - skipBits)) - 1;
+          valueBits = 5 - skipBits;
+          skipBits = 0;
+        }
+
+        bitBuffer = (bitBuffer << valueBits) | value;
+        bitCount += valueBits;
+        while (bitCount >= 8 && outIdx < length) {
+          bitCount -= 8;
+          out[outIdx++] = (bitBuffer >> bitCount) & 0xff;
+          bitBuffer &= (1 << bitCount) - 1;
+        }
       }
-      srcOffset += bytesToRead;
-      remaining -= bytesToRead;
     }
     return out;
   }

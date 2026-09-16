@@ -28,3 +28,5 @@ export const MERGE_DATA_POS = {
   pos1: [32 * 19, 32 * 3, 32 * 3],
   pos2: [32 * 27, 32 * 11, 32 * 11],
 } as const;
+
+export const WEIGHT_ORIGIN = [96, 1, 0] as const;

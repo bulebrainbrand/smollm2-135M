@@ -1,3 +1,4 @@
+import { WEIGHT_ORIGIN } from "./constants.ts";
 import type { Manifest } from "./types.ts";
 
 const BLOCK_SIZE = 32;
@@ -7,7 +8,7 @@ const BLOCKS_PER_SPATIAL_CHUNK = 8;
 type Position = [number, number, number];
 
 export function createWeightCoordFn(
-  origin: Readonly<Position> = [0, 0, 0],
+  origin: Readonly<Position> = WEIGHT_ORIGIN,
 ): (index: number) => Position {
   return (index: number): Position => {
     if (!Number.isInteger(index) || index < 0) {

@@ -9,7 +9,7 @@ tokenizer_path = hf_hub_download(repo_id=REPO, filename="tokenizer.json")
 tok = Tokenizer.from_file(tokenizer_path)
  
 test_cases = [
-    "hello",
+    "あ",
     "TypeScriptで実装したい",
     "  multiple   spaces  and\ttabs\n",
     "The quick brown fox jumps over the lazy dog.",

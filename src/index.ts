@@ -80,3 +80,7 @@ queueGenerator(
     console.log(yield* tokenizer.encode("hello"));
   })(),
 );
+// @ts-expect-error
+globalThis.queue = queueGenerator;
+// @ts-expect-error
+globalThis.tokenizer = tokenizer;

@@ -1,6 +1,37 @@
-const ALPHABET = Array.from({ length: 32 }, (_, i) =>
-  String.fromCharCode(0x21 + i),
-);
+const ALPHABET = [
+  "!",
+  '"',
+  "|",
+  "$",
+  "%",
+  "&",
+  "'",
+  "(",
+  ")",
+  "*",
+  "+",
+  ",",
+  "-",
+  ".",
+  "/",
+  "0",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  ":",
+  ";",
+  "<",
+  "=",
+  ">",
+  "?",
+  "@",
+];
 const REVERSE = new Map(ALPHABET.map((ch, i) => [ch, i]));
 const CODES = Uint8Array.from(ALPHABET, (ch) => ch.charCodeAt(0));
 

@@ -400,7 +400,7 @@ function* forwardStep(
     weights.finalNorm,
   );
   const normedFinal = yield* rmsNorm(hidden, finalNormWeight, cfg.rmsNormEps);
-
+  yield END_THIS_TICK_STR;
   return yield* computeLogits(
     cursor,
     weights.embedTokens,

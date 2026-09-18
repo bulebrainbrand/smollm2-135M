@@ -54,6 +54,7 @@ interface KVCache {
   values: Float32Array[][]; // 同上
 }
 import type { ByteCursor as ByteCursorLike } from "./byte_cursur.ts";
+import type { EndThisTickStr } from "./eventLoop.ts";
 // ==== 量子化復元ユーティリティ ====
 
 function toSignedInt8(v: number): number {
@@ -66,7 +67,7 @@ function* readRowDequantized(
   tensor: TensorMeta,
   row: number,
   rowLen: number,
-): Generator<any, Float32Array<ArrayBuffer>, any> {
+): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
   const raw = yield* cursor.readBytes(tensor.offset + row * rowLen, rowLen);
   const out = new Float32Array(rowLen);
   for (let i = 0; i < rowLen; i++) {
@@ -76,7 +77,10 @@ function* readRowDequantized(
 }
 
 /** ベクトルをそのままdequantizeして返す(RMSNormの重みなど、1次元の小さいテンソル用)。 */
-function readVectorDequantized(cursor: ByteCursorLike, tensor: TensorMeta) {
+function readVectorDequantized(
+  cursor: ByteCursorLike,
+  tensor: TensorMeta,
+): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
   return readRowDequantized(cursor, tensor, 0, tensor.length);
 }
 
@@ -90,7 +94,7 @@ function* linear(
   input: Float32Array,
   outDim: number,
   inDim: number,
-) {
+): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
   const out = new Float32Array(outDim);
   for (let o = 0; o < outDim; o++) {
     const row = yield* readRowDequantized(cursor, weight, o, inDim);
@@ -103,11 +107,11 @@ function* linear(
 
 // ==== RMSNorm ====
 
-function rmsNorm(
+function* rmsNorm(
   x: Float32Array,
   weight: Float32Array,
   eps: number,
-): Float32Array {
+): Generator<never, Float32Array<ArrayBuffer>, unknown> {
   let sumSq = 0;
   for (let i = 0; i < x.length; i++) sumSq += x[i] * x[i];
   const rms = Math.sqrt(sumSq / x.length + eps);
@@ -154,7 +158,7 @@ function* attention(
   pos: number,
   cfg: ModelConfig,
   kvCache: KVCache,
-) {
+): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
   const {
     numAttentionHeads,
     numKeyValueHeads,
@@ -266,9 +270,8 @@ function* mlp(
   layerWeights: LayerWeights,
   normedInput: Float32Array,
   cfg: ModelConfig,
-) {
+): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
   const { hiddenSize, intermediateSize } = cfg;
-
   const gate = yield* linear(
     cursor,
     layerWeights.gateProj,
@@ -276,6 +279,7 @@ function* mlp(
     intermediateSize,
     hiddenSize,
   );
+  console.log("created gate");
   const up = yield* linear(
     cursor,
     layerWeights.upProj,
@@ -283,10 +287,10 @@ function* mlp(
     intermediateSize,
     hiddenSize,
   );
-
+  console.log("creaed up");
   const swiglu = new Float32Array(intermediateSize);
   for (let i = 0; i < intermediateSize; i++) swiglu[i] = silu(gate[i]) * up[i];
-
+  console.log("created swiglu");
   return yield* linear(
     cursor,
     layerWeights.downProj,
@@ -303,7 +307,7 @@ function getTokenEmbedding(
   embedTokens: TensorMeta,
   tokenId: number,
   hiddenSize: number,
-) {
+): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
   return readRowDequantized(cursor, embedTokens, tokenId, hiddenSize);
 }
 
@@ -316,7 +320,7 @@ function* computeLogits(
   hiddenState: Float32Array,
   vocabSize: number,
   hiddenSize: number,
-) {
+): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
   const logits = new Float32Array(vocabSize);
   for (let v = 0; v < vocabSize; v++) {
     const row = yield* readRowDequantized(cursor, embedTokens, v, hiddenSize);
@@ -336,7 +340,7 @@ function* forwardStep(
   tokenId: number,
   pos: number,
   kvCache: KVCache,
-) {
+): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
   let hidden = yield* getTokenEmbedding(
     cursor,
     weights.embedTokens,
@@ -345,7 +349,6 @@ function* forwardStep(
   );
 
   for (let l = 0; l < cfg.numLayers; l++) {
-    yield;
     console.log("layer", l);
     const layerWeights = weights.layers[l];
 
@@ -353,7 +356,7 @@ function* forwardStep(
       cursor,
       layerWeights.inputNorm,
     );
-    const normed1 = rmsNorm(hidden, inputNormWeight, cfg.rmsNormEps);
+    const normed1 = yield* rmsNorm(hidden, inputNormWeight, cfg.rmsNormEps);
     const attnOut = yield* attention(
       cursor,
       layerWeights,
@@ -367,19 +370,21 @@ function* forwardStep(
     const hiddenAfterAttn = new Float32Array(cfg.hiddenSize);
     for (let i = 0; i < cfg.hiddenSize; i++)
       hiddenAfterAttn[i] = hidden[i] + attnOut[i];
-
+    console.log("created hidden after attn");
     const postAttnNormWeight = yield* readVectorDequantized(
       cursor,
       layerWeights.postAttnNorm,
     );
-    const normed2 = rmsNorm(
+    console.log("created postAttnNormWeight");
+    const normed2 = yield* rmsNorm(
       hiddenAfterAttn,
       postAttnNormWeight,
       cfg.rmsNormEps,
     );
+    console.log("created normed2");
     const mlpOut = yield* mlp(cursor, layerWeights, normed2, cfg);
+    console.log("created mlp");
     console.log("layer:", l, "mlp end");
-    yield;
     hidden = new Float32Array(cfg.hiddenSize);
     for (let i = 0; i < cfg.hiddenSize; i++)
       hidden[i] = hiddenAfterAttn[i] + mlpOut[i];
@@ -389,7 +394,7 @@ function* forwardStep(
     cursor,
     weights.finalNorm,
   );
-  const normedFinal = rmsNorm(hidden, finalNormWeight, cfg.rmsNormEps);
+  const normedFinal = yield* rmsNorm(hidden, finalNormWeight, cfg.rmsNormEps);
 
   return yield* computeLogits(
     cursor,
@@ -420,7 +425,7 @@ function* generate(
   maxNewTokens: number,
   eosTokenId: number,
   callback: (token: number[]) => void,
-) {
+): Generator<EndThisTickStr, number[], any> {
   const kvCache: KVCache = {
     keys: Array.from({ length: cfg.numLayers }, () => []),
     values: Array.from({ length: cfg.numLayers }, () => []),

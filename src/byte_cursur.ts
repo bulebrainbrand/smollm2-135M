@@ -1,5 +1,6 @@
 "use worldcode";
 import { readData } from "./blockdata/dataIO.ts";
+import type { EndThisTickStr } from "./eventLoop.ts";
 import { decodeSymbol } from "./safe32/index.ts";
 
 export class ByteCursor {
@@ -17,17 +18,23 @@ export class ByteCursor {
     this.chunkText = "";
   }
 
-  *_ensureChunkLoaded(charOffset: number) {
+  *_ensureChunkLoaded(
+    charOffset: number,
+  ): Generator<EndThisTickStr, number, unknown> {
     const neededChunk = Math.floor(charOffset / this.chunkSize);
     if (neededChunk !== this.chunkIndex) {
       const pos = this.coordFn(neededChunk);
+      api.getBlock(pos[0] + 32, pos[1], pos[2]); // try next chunk load for next read
       this.chunkText = (yield* readData(pos)) ?? "";
       this.chunkIndex = neededChunk;
     }
     return charOffset - neededChunk * this.chunkSize;
   }
 
-  *readBytes(tensorOffset: number, length: number) {
+  *readBytes(
+    tensorOffset: number,
+    length: number,
+  ): Generator<EndThisTickStr, Uint8Array<ArrayBuffer>, unknown> {
     const out = new Uint8Array(length);
     let encodedCharOffset = Math.floor((tensorOffset * 8) / 5);
     let skipBits = (tensorOffset * 8) % 5;

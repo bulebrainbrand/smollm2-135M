@@ -1,10 +1,13 @@
 /// <reference path="../../node_modules/@bloxd/types/globals.d.ts" />
 
+import { END_THIS_TICK_STR, type EndThisTickStr } from "../eventLoop.ts";
+
 export function* readData(
   pos: [number, number, number],
-): Generator<undefined, string | undefined, unknown> {
+): Generator<EndThisTickStr, string | undefined, unknown> {
   while (!api.isBlockInLoadedChunk(...pos)) {
-    yield void api.getBlock(pos);
+    api.getBlock(pos);
+    yield END_THIS_TICK_STR;
   }
   return api.getBlockData(...pos)?.persisted?.shared?.text;
 }
@@ -12,11 +15,11 @@ export function* readData(
 export function* writeData(
   pos: [number, number, number],
   text: string,
-): Generator<undefined, void, unknown> {
+): Generator<EndThisTickStr, void, unknown> {
   let block = api.getBlock(pos);
   while (!api.isBlockInLoadedChunk(...pos)) {
     block = api.getBlock(pos);
-    yield;
+    yield END_THIS_TICK_STR;
   }
   if (block !== "Code Block") {
     api.setBlock(pos, "Code Block");

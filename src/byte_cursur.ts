@@ -1,7 +1,7 @@
 "use worldcode";
 import { readData } from "./blockdata/dataIO.ts";
 import type { EndThisTickStr } from "./eventLoop.ts";
-import { decodeSymbol } from "./safe32/index.ts";
+import { decodeSymbolCode } from "./safe32/index.ts";
 
 export class ByteCursor {
   readonly chunkSize: number;
@@ -25,6 +25,9 @@ export class ByteCursor {
     if (neededChunk !== this.chunkIndex) {
       const pos = this.coordFn(neededChunk);
       api.getBlock(pos[0] + 32, pos[1], pos[2]); // try next chunk load for next read
+      api.getBlock(pos[0] + 64, pos[1], pos[2]); // try next chunk load for next read
+      api.getBlock(pos[0] + 96, pos[1], pos[2]); // try next chunk load for next read
+      api.getBlock(pos[0] + 128, pos[1], pos[2]); // try next chunk load for next read
       this.chunkText = (yield* readData(pos)) ?? "";
       this.chunkIndex = neededChunk;
     }
@@ -57,7 +60,7 @@ export class ByteCursor {
         i < charsLeftInChunk && outIdx < length;
         i++, encodedCharOffset++
       ) {
-        let value = decodeSymbol(this.chunkText[localPos + i]);
+        let value = decodeSymbolCode(this.chunkText.charCodeAt(localPos + i));
         let valueBits = 5;
         if (skipBits !== 0) {
           value &= (1 << (5 - skipBits)) - 1;

@@ -35,10 +35,35 @@ const ALPHABET = [
 const REVERSE = new Map(ALPHABET.map((ch, i) => [ch, i]));
 const CODES = Uint8Array.from(ALPHABET, (ch) => ch.charCodeAt(0));
 
+// charCode -> symbol value lookup table. Avoids allocating a throwaway
+// 1-char string (from `str[i]`) and a Map hash lookup per symbol, which
+// dominates decode cost in QuickJS's interpreter when called millions of
+// times per forward pass. 255 marks "invalid".
+const MAX_CODE = CODES.reduce((max, c) => Math.max(max, c), 0);
+const REVERSE_BY_CODE = new Uint8Array(MAX_CODE + 1).fill(255);
+ALPHABET.forEach((ch, i) => {
+  REVERSE_BY_CODE[ch.charCodeAt(0)] = i;
+});
+
 export function decodeSymbol(ch: string): number {
   const value = REVERSE.get(ch);
   if (value === undefined) {
     throw new Error(`Invalid safe32 character: ${JSON.stringify(ch)}`);
+  }
+  return value;
+}
+
+/**
+ * Same as decodeSymbol, but takes a charCode (e.g. from `str.charCodeAt(i)`)
+ * instead of a 1-char string, so no substring needs to be allocated by the
+ * caller. Prefer this in hot loops (see byte_cursur.ts).
+ */
+export function decodeSymbolCode(code: number): number {
+  const value = code <= MAX_CODE ? REVERSE_BY_CODE[code] : 255;
+  if (value === 255) {
+    throw new Error(
+      `Invalid safe32 character code: ${code} (${JSON.stringify(String.fromCharCode(code))})`,
+    );
   }
   return value;
 }

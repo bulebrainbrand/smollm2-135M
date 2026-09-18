@@ -1,12 +1,9 @@
 let queue: Iterator<unknown>[] = [];
 export const queueGenerator = <T>(iter: Iterator<T>): void => {
-  queue.push(iter);
+  queue.unshift(iter);
 };
-const MAX_TIMES = 10;
 export const update = () => {
-  let count = 0;
-  while (!api.isNearInterrupt() && count < MAX_TIMES && queue.length >= 1) {
-    count++;
+  while (!api.isNearInterrupt() && queue.length >= 1) {
     const result = queue[0].next();
     if (result.done) {
       queue.shift();

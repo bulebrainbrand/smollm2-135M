@@ -37,6 +37,8 @@ interface ModelConfig {
   numKeyValueHeads: number;
   headDim: number;
   intermediateSize: number;
+  /** Fraction of the MLP intermediate neurons to evaluate (1.0 = exact). */
+  mlpKeepRatio?: number;
   vocabSize: number;
   ropeTheta: number;
   rmsNormEps: number;
@@ -55,6 +57,20 @@ interface KVCache {
 }
 import type { ByteCursor as ByteCursorLike } from "./byte_cursur.ts";
 import { END_THIS_TICK_STR, type EndThisTickStr } from "./eventLoop.ts";
+
+// The forward pass used to call console.log at every layer/sub-step of
+// every generated token. In an embedded engine console.log usually crosses
+// a host bridge and isn't free, and it runs literally every token - flip
+// this to true only when actively debugging.
+const DEBUG_LOG = false;
+function log(...args: unknown[]): void {
+  if (DEBUG_LOG) console.log(...args);
+}
+
+// A generator suspension per multiply is extremely expensive in the game
+// runtime. Eight rows is still small enough to yield regularly, while cutting
+// millions of useless suspends from each token. This does not change results.
+const LINEAR_ROW_BATCH = 8;
 // ==== 量子化復元ユーティリティ ====
 
 function toSignedInt8(v: number): number {
@@ -94,13 +110,28 @@ function* linear(
   input: Float32Array,
   outDim: number,
   inDim: number,
+  rowStride = inDim,
 ): Generator<EndThisTickStr | undefined, Float32Array<ArrayBuffer>, any> {
   const out = new Float32Array(outDim);
+  const scale = weight.scale;
   for (let o = 0; o < outDim; o++) {
-    const row = yield* readRowDequantized(cursor, weight, o, inDim);
+    if ((o & (LINEAR_ROW_BATCH - 1)) === 0) yield;
+    const raw = yield* cursor.readBytes(weight.offset + o * rowStride, inDim);
+    // raw is already two's-complement int8 data (that's what quantization
+    // produced), so reinterpreting the buffer as Int8Array gives the signed
+    // value directly with zero branches/calls per element - no need for
+    // toSignedInt8(). dot(scale*w, x) === scale*dot(w, x), so the scale
+    // multiply (and the float32 rounding via Math.fround) moves out of the
+    // O(inDim) loop to a single O(1) op per row.
+    const signed = new Int8Array(raw.buffer, raw.byteOffset, inDim);
     let sum = 0;
-    for (let i = 0; i < inDim; i++) sum += row[i] * input[i];
-    out[o] = sum;
+    for (let i = 0; i < inDim; i++) {
+      // int8の0は積に寄与しないため、乗算を省略する。
+      const w = signed[i];
+      if (w === 0) continue;
+      sum += w * input[i];
+    }
+    out[o] = Math.fround(sum * scale);
   }
   return out;
 }
@@ -178,7 +209,7 @@ function* attention(
     qDim,
     hiddenSize,
   );
-  console.log("attention q end");
+  log("attention q end");
   const k = yield* linear(
     cursor,
     layerWeights.kProj,
@@ -186,7 +217,7 @@ function* attention(
     kvDim,
     hiddenSize,
   );
-  console.log("attention k end");
+  log("attention k end");
   const v = yield* linear(
     cursor,
     layerWeights.vProj,
@@ -194,7 +225,7 @@ function* attention(
     kvDim,
     hiddenSize,
   );
-  console.log("attention v end");
+  log("attention v end");
   // ヘッドごとにRoPEを適用
   for (let h = 0; h < numAttentionHeads; h++) {
     applyRope(
@@ -272,32 +303,39 @@ function* mlp(
   cfg: ModelConfig,
 ): Generator<EndThisTickStr | undefined, Float32Array<ArrayBuffer>, any> {
   const { hiddenSize, intermediateSize } = cfg;
+  // Keep the selected neurons contiguous so the Safe32 cursor can read one
+  // compact slice per row. Set to 1.0 for the original full-width MLP.
+  const keepRatio = Math.max(0.05, Math.min(1, cfg.mlpKeepRatio ?? 1));
+  const activeIntermediateSize = Math.max(
+    1,
+    Math.floor(intermediateSize * keepRatio),
+  );
   const gate = yield* linear(
     cursor,
     layerWeights.gateProj,
     normedInput,
-    intermediateSize,
+    activeIntermediateSize,
     hiddenSize,
   );
-  yield END_THIS_TICK_STR;
-  console.log("created gate");
+  log("created gate");
   const up = yield* linear(
     cursor,
     layerWeights.upProj,
     normedInput,
-    intermediateSize,
+    activeIntermediateSize,
     hiddenSize,
   );
-  yield END_THIS_TICK_STR;
-  console.log("creaed up");
-  const swiglu = new Float32Array(intermediateSize);
-  for (let i = 0; i < intermediateSize; i++) swiglu[i] = silu(gate[i]) * up[i];
-  console.log("created swiglu");
+  log("creaed up");
+  const swiglu = new Float32Array(activeIntermediateSize);
+  for (let i = 0; i < activeIntermediateSize; i++)
+    swiglu[i] = silu(gate[i]) * up[i];
+  log("created swiglu");
   return yield* linear(
     cursor,
     layerWeights.downProj,
     swiglu,
     hiddenSize,
+    activeIntermediateSize,
     intermediateSize,
   );
 }
@@ -322,13 +360,29 @@ function* computeLogits(
   hiddenState: Float32Array,
   vocabSize: number,
   hiddenSize: number,
-): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
+): Generator<EndThisTickStr | undefined, Float32Array<ArrayBuffer>, any> {
+  // This is the one place that reads the whole embedding table, once per
+  // generated token, so it's the single most-called hot loop in the model.
+  // readRowDequantized() would decode each row into its own new
+  // Float32Array(hiddenSize) (vocabSize allocations per token) and multiply
+  // in `scale` per element; here we dot-product straight off the raw int8
+  // bytes and apply `scale` once per row instead, same trick as linear().
   const logits = new Float32Array(vocabSize);
+  const scale = embedTokens.scale;
   for (let v = 0; v < vocabSize; v++) {
-    const row = yield* readRowDequantized(cursor, embedTokens, v, hiddenSize);
+    if ((v & (LINEAR_ROW_BATCH - 1)) === 0) yield;
+    const raw = yield* cursor.readBytes(
+      embedTokens.offset + v * hiddenSize,
+      hiddenSize,
+    );
+    const signed = new Int8Array(raw.buffer, raw.byteOffset, hiddenSize);
     let sum = 0;
-    for (let i = 0; i < hiddenSize; i++) sum += row[i] * hiddenState[i];
-    logits[v] = sum;
+    for (let i = 0; i < hiddenSize; i++) {
+      const w = signed[i];
+      if (w === 0) continue;
+      sum += w * hiddenState[i];
+    }
+    logits[v] = Math.fround(sum * scale);
   }
   return logits;
 }
@@ -352,7 +406,7 @@ function* forwardStep(
 
   for (let l = 0; l < cfg.numLayers; l++) {
     yield END_THIS_TICK_STR;
-    console.log("layer", l);
+    log("layer", l);
     const layerWeights = weights.layers[l];
 
     const inputNormWeight = yield* readVectorDequantized(
@@ -369,26 +423,26 @@ function* forwardStep(
       cfg,
       kvCache,
     );
-    console.log("layer:", l, "attention end");
+    log("layer:", l, "attention end");
     const hiddenAfterAttn = new Float32Array(cfg.hiddenSize);
     for (let i = 0; i < cfg.hiddenSize; i++)
       hiddenAfterAttn[i] = hidden[i] + attnOut[i];
-    console.log("created hidden after attn");
+    log("created hidden after attn");
     const postAttnNormWeight = yield* readVectorDequantized(
       cursor,
       layerWeights.postAttnNorm,
     );
-    console.log("created postAttnNormWeight");
+    log("created postAttnNormWeight");
     const normed2 = yield* rmsNorm(
       hiddenAfterAttn,
       postAttnNormWeight,
       cfg.rmsNormEps,
     );
-    console.log("created normed2");
+    log("created normed2");
     yield END_THIS_TICK_STR;
     const mlpOut = yield* mlp(cursor, layerWeights, normed2, cfg);
-    console.log("created mlp");
-    console.log("layer:", l, "mlp end");
+    log("created mlp");
+    log("layer:", l, "mlp end");
     yield;
     hidden = new Float32Array(cfg.hiddenSize);
     for (let i = 0; i < cfg.hiddenSize; i++)
@@ -453,7 +507,7 @@ function* generate(
 
   // 新規トークンを1個ずつ生成
   for (let step = 0; step < maxNewTokens; step++) {
-    console.log("step:", step);
+    log("step:", step);
     const nextToken = argmax(logits);
     generated.push(nextToken);
     callback(generated);

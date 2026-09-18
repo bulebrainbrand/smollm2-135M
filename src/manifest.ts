@@ -8,6 +8,9 @@ export const modelConfig = {
   numKeyValueHeads: 3,
   headDim: 64,
   intermediateSize: 1536,
+  // Half-width MLP for faster in-game inference. Set to 1.0 for full
+  // accuracy, or 0.75 for a milder quality/speed trade-off.
+  mlpKeepRatio: 0.5,
   vocabSize: 49152,
   ropeTheta: 100000,
   rmsNormEps: 1e-5,

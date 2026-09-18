@@ -368,16 +368,18 @@ function* computeLogits(
   // in `scale` per element; here we dot-product straight off the raw int8
   // bytes and apply `scale` once per row instead, same trick as linear().
   const logits = new Float32Array(vocabSize);
+  const raw = new Uint8Array(hiddenSize);
+  const signed = new Int8Array(raw.buffer, raw.byteOffset, hiddenSize);
   const scale = embedTokens.scale;
   for (let v = 0; v < vocabSize; v++) {
     if (v % 100 === 0) {
       log("computeLogits vocab progress", v);
     }
-    const raw = yield* cursor.readBytes(
+    yield* cursor.readBytesInto(
+      raw,
       embedTokens.offset + v * hiddenSize,
       hiddenSize,
     );
-    const signed = new Int8Array(raw.buffer, raw.byteOffset, hiddenSize);
     let sum = 0;
     yield;
     for (let i = 0; i < hiddenSize; i++) {

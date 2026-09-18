@@ -39,6 +39,28 @@ export class ByteCursor {
     length: number,
   ): Generator<EndThisTickStr, Uint8Array<ArrayBuffer>, unknown> {
     const out = new Uint8Array(length);
+    yield* this.readBytesInto(out, tensorOffset, length);
+    return out;
+  }
+
+  /**
+   * Decode bytes into a caller-owned buffer.
+   *
+   * Reusing the output buffer avoids allocating a new Uint8Array for every
+   * row when a tensor is scanned repeatedly, such as the tied embedding
+   * table in computeLogits.
+   */
+  *readBytesInto(
+    out: Uint8Array,
+    tensorOffset: number,
+    length = out.length,
+  ): Generator<EndThisTickStr, void, unknown> {
+    if (length < 0 || length > out.length) {
+      throw new RangeError(
+        `readBytesInto length ${length} exceeds output buffer size ${out.length}`,
+      );
+    }
+
     let encodedCharOffset = Math.floor((tensorOffset * 8) / 5);
     let skipBits = (tensorOffset * 8) % 5;
     let bitBuffer = 0;
@@ -77,6 +99,5 @@ export class ByteCursor {
         }
       }
     }
-    return out;
   }
 }

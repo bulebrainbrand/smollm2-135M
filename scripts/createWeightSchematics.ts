@@ -11,7 +11,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 const INPUT_PATH = "./out/weights_safe32.txt";
 const OUTPUT_DIR = "./schematics";
 const CODE_BLOCK_ID = 1510;
-const CODE_BLOCK_CHARS = 36_000;
+const CODE_BLOCK_CHARS = 16000;
 const BLOCKS_PER_SPATIAL_CHUNK = 8;
 const SLOT_SPACING = 4;
 
@@ -74,7 +74,19 @@ const schematic: LongestNormailedSchema = {
 };
 
 mkdirSync(OUTPUT_DIR, { recursive: true });
-splitSchematicByAxis(schematic, 32 * 3, "x")
+splitSchematicByAxis(schematic, 32 * 5, "x")
+  .map((schem, i) => {
+    schem.chunks.find(
+      (chunk) => chunk.pos[0] === 0 && chunk.pos[1] === 0 && chunk.pos[2] === 0,
+    )!.blocks[calcBlocksIndex(0, 0, 31)] = CODE_BLOCK_ID;
+    schem.blockdatas.push({
+      blockX: 0,
+      blockY: 0,
+      blockZ: 31,
+      blockdataStr: createBlockDataStr(`${i}`),
+    });
+    return schem;
+  })
   .map(LongestSchema.normalizedSchemaToSchemaObject)
   .map(LongestSchema.schemaObjectToBuffer)
   .forEach((buffer, index) => {

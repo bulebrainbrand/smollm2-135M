@@ -1,31 +1,30 @@
 "use worldcode";
 import { readData } from "./blockdata/dataIO.ts";
 import { decodeSymbol } from "./safe32/index.ts";
-import type { Manifest } from "./types.ts";
 
 export class ByteCursor {
-  readonly manifest: Manifest;
+  readonly chunkSize: number;
   readonly coordFn: (index: number) => [number, number, number];
   chunkIndex: number;
   chunkText: string;
   constructor(
-    manifest: Manifest,
+    chunkSize: number,
     coordFn: (index: number) => [number, number, number],
   ) {
-    this.manifest = manifest;
+    this.chunkSize = chunkSize;
     this.coordFn = coordFn;
     this.chunkIndex = -1;
     this.chunkText = "";
   }
 
   *_ensureChunkLoaded(charOffset: number) {
-    const neededChunk = Math.floor(charOffset / this.manifest.chunk_size);
+    const neededChunk = Math.floor(charOffset / this.chunkSize);
     if (neededChunk !== this.chunkIndex) {
       const pos = this.coordFn(neededChunk);
       this.chunkText = (yield* readData(pos)) ?? "";
       this.chunkIndex = neededChunk;
     }
-    return charOffset - neededChunk * this.manifest.chunk_size;
+    return charOffset - neededChunk * this.chunkSize;
   }
 
   *readBytes(tensorOffset: number, length: number) {

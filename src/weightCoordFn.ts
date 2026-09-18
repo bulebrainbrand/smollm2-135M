@@ -1,5 +1,4 @@
 import { WEIGHT_ORIGIN } from "./constants.ts";
-import type { Manifest } from "./types.ts";
 
 const BLOCK_SIZE = 32;
 const SLOT_SPACING = 4;

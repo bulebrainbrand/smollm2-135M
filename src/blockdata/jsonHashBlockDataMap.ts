@@ -1,3 +1,4 @@
+import type { EndThisTickStr } from "../eventLoop.ts";
 import { PlainHashBlockDataMap } from "./plainHashBlockDataMap.ts";
 import type { HashBlockDataMap } from "./types.ts";
 
@@ -11,7 +12,7 @@ export class JSONHashBlockDataMap implements HashBlockDataMap<
   *read(
     key: string,
   ): Generator<
-    undefined,
+    EndThisTickStr,
     string | number | boolean | object | null | undefined,
     unknown
   > {
@@ -23,7 +24,7 @@ export class JSONHashBlockDataMap implements HashBlockDataMap<
   *write(
     key: string,
     value: string | number | boolean | object | null | undefined,
-  ): Generator<undefined, void, unknown> {
+  ): Generator<EndThisTickStr, void, unknown> {
     const result = yield* this.plainHashBlockDataMap.read(key);
     const json = result === undefined ? {} : JSON.parse(result);
     json[key] = value;

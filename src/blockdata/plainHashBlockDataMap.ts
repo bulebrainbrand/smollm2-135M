@@ -1,3 +1,4 @@
+import type { EndThisTickStr } from "../eventLoop.ts";
 import { readData, writeData } from "./dataIO.ts";
 import type { HashBlockDataMap } from "./types.ts";
 /**
@@ -21,14 +22,14 @@ export class PlainHashBlockDataMap implements HashBlockDataMap<
     this.pos2 = pos2;
   }
 
-  *read(key: string): Generator<undefined, string | undefined, unknown> {
+  *read(key: string): Generator<EndThisTickStr, string | undefined, unknown> {
     const hashNumber = hash(key);
     const [x1, y1, z1] = this.pos1;
     const [x2, y2, z2] = this.pos2;
     const [x, y, z] = hashNumberToPos(hashNumber, x2 - x1, y2 - y1, z2 - z1);
     return yield* readData([x + x1, y + y1, z + z1]);
   }
-  *write(key: string, value: string): Generator<undefined, void, unknown> {
+  *write(key: string, value: string): Generator<EndThisTickStr, void, unknown> {
     const hashNumber = hash(key);
     const [x1, y1, z1] = this.pos1;
     const [x2, y2, z2] = this.pos2;

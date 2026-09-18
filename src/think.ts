@@ -62,7 +62,7 @@ import { END_THIS_TICK_STR, type EndThisTickStr } from "./eventLoop.ts";
 // every generated token. In an embedded engine console.log usually crosses
 // a host bridge and isn't free, and it runs literally every token - flip
 // this to true only when actively debugging.
-const DEBUG_LOG = false;
+const DEBUG_LOG = true;
 function log(...args: unknown[]): void {
   if (DEBUG_LOG) console.log(...args);
 }
@@ -370,13 +370,16 @@ function* computeLogits(
   const logits = new Float32Array(vocabSize);
   const scale = embedTokens.scale;
   for (let v = 0; v < vocabSize; v++) {
-    if ((v & (LINEAR_ROW_BATCH - 1)) === 0) yield;
+    if (v % 100 === 0) {
+      log("computeLogits vocab progress", v);
+    }
     const raw = yield* cursor.readBytes(
       embedTokens.offset + v * hiddenSize,
       hiddenSize,
     );
     const signed = new Int8Array(raw.buffer, raw.byteOffset, hiddenSize);
     let sum = 0;
+    yield;
     for (let i = 0; i < hiddenSize; i++) {
       const w = signed[i];
       if (w === 0) continue;

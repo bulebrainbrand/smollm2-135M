@@ -85,6 +85,7 @@ queueGenerator(
     //  yield* checkValid();
   })(),
 );
+const cursor = new ByteCursor(chunkSize, createWeightCoordFn());
 // @ts-expect-error
 globalThis.queue = queueGenerator;
 // @ts-expect-error
@@ -92,7 +93,7 @@ globalThis.tokenizer = tokenizer;
 // @ts-expect-error
 globalThis.generate = generate;
 // @ts-expect-error
-globalThis.cursor = new ByteCursor(chunkSize, createWeightCoordFn());
+globalThis.cursor = cursor;
 // @ts-expect-error
 globalThis.modelWeight = modelWeight;
 // @ts-expect-error
@@ -114,3 +115,15 @@ onPlayerClick = (id) => {
     );
   }
 };
+
+globalThis.think = () =>
+  queueGenerator(
+    generate(cursor, modelWeight, modelConfig, [28120], 5, 2, (a) => {
+      queueGenerator(
+        (function* () {
+          const text = yield* tokenizer.decode(a);
+          console.log(text);
+        })(),
+      );
+    }),
+  );

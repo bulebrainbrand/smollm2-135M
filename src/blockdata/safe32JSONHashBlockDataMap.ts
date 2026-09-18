@@ -1,3 +1,4 @@
+import type { EndThisTickStr } from "../eventLoop.ts";
 import {
   decode as decodeSafe32,
   encode as encodeSafe32,
@@ -16,7 +17,7 @@ export class Safe32JSONHashBlockDataMap implements HashBlockDataMap<
   constructor(JSONHashBlockDataMap: JSONHashBlockDataMap) {
     this.JSONHashBlockDataMap = JSONHashBlockDataMap;
   }
-  *read(key: string): Generator<undefined, string | undefined, unknown> {
+  *read(key: string): Generator<EndThisTickStr, string | undefined, unknown> {
     const safe32Key = encodeSafe32(encodeUnicode(key));
     const result = yield* this.JSONHashBlockDataMap.read(safe32Key);
     if (result === undefined) return undefined;
@@ -29,7 +30,7 @@ export class Safe32JSONHashBlockDataMap implements HashBlockDataMap<
   *write(
     key: string,
     value: string | undefined,
-  ): Generator<undefined, void, unknown> {
+  ): Generator<EndThisTickStr, void, unknown> {
     const safe32Key = encodeSafe32(encodeUnicode(key));
     const safe32Value =
       value === undefined ? undefined : encodeSafe32(encodeUnicode(value));
@@ -47,7 +48,7 @@ export class KeySafe32JSONHashBlockDataMap implements HashBlockDataMap<
   *read(
     key: string,
   ): Generator<
-    undefined,
+    EndThisTickStr,
     string | number | boolean | object | null | undefined,
     unknown
   > {
@@ -58,7 +59,7 @@ export class KeySafe32JSONHashBlockDataMap implements HashBlockDataMap<
   *write(
     key: string,
     value: string | number | boolean | object | null | undefined,
-  ): Generator<undefined, void, unknown> {
+  ): Generator<EndThisTickStr, void, unknown> {
     const safe32Key = encodeSafe32(encodeUnicode(key));
     yield* this.JSONHashBlockDataMap.write(safe32Key, value);
   }
@@ -71,7 +72,7 @@ export class ValueSafe32JSONHashBlockDataMap implements HashBlockDataMap<
   constructor(JSONHashBlockDataMap: JSONHashBlockDataMap) {
     this.JSONHashBlockDataMap = JSONHashBlockDataMap;
   }
-  *read(key: string): Generator<undefined, string | undefined, unknown> {
+  *read(key: string): Generator<EndThisTickStr, string | undefined, unknown> {
     const result = yield* this.JSONHashBlockDataMap.read(key);
     if (result === undefined) return undefined;
     if (typeof result !== "string")
@@ -83,7 +84,7 @@ export class ValueSafe32JSONHashBlockDataMap implements HashBlockDataMap<
   *write(
     key: string,
     value: string | undefined,
-  ): Generator<undefined, void, unknown> {
+  ): Generator<EndThisTickStr, void, unknown> {
     const safe32Value =
       value === undefined ? undefined : encodeSafe32(encodeUnicode(value));
     yield* this.JSONHashBlockDataMap.write(key, safe32Value);

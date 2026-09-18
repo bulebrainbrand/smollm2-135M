@@ -54,7 +54,7 @@ interface KVCache {
   values: Float32Array[][]; // 同上
 }
 import type { ByteCursor as ByteCursorLike } from "./byte_cursur.ts";
-import type { EndThisTickStr } from "./eventLoop.ts";
+import { END_THIS_TICK_STR, type EndThisTickStr } from "./eventLoop.ts";
 // ==== 量子化復元ユーティリティ ====
 
 function toSignedInt8(v: number): number {
@@ -97,7 +97,6 @@ function* linear(
 ): Generator<EndThisTickStr | undefined, Float32Array<ArrayBuffer>, any> {
   const out = new Float32Array(outDim);
   for (let o = 0; o < outDim; o++) {
-    yield;
     const row = yield* readRowDequantized(cursor, weight, o, inDim);
     let sum = 0;
     for (let i = 0; i < inDim; i++) sum += row[i] * input[i];
@@ -280,6 +279,7 @@ function* mlp(
     intermediateSize,
     hiddenSize,
   );
+  yield END_THIS_TICK_STR;
   console.log("created gate");
   const up = yield* linear(
     cursor,
@@ -288,6 +288,7 @@ function* mlp(
     intermediateSize,
     hiddenSize,
   );
+  yield END_THIS_TICK_STR;
   console.log("creaed up");
   const swiglu = new Float32Array(intermediateSize);
   for (let i = 0; i < intermediateSize; i++) swiglu[i] = silu(gate[i]) * up[i];
@@ -350,6 +351,7 @@ function* forwardStep(
   );
 
   for (let l = 0; l < cfg.numLayers; l++) {
+    yield END_THIS_TICK_STR;
     console.log("layer", l);
     const layerWeights = weights.layers[l];
 
@@ -383,9 +385,11 @@ function* forwardStep(
       cfg.rmsNormEps,
     );
     console.log("created normed2");
+    yield END_THIS_TICK_STR;
     const mlpOut = yield* mlp(cursor, layerWeights, normed2, cfg);
     console.log("created mlp");
     console.log("layer:", l, "mlp end");
+    yield;
     hidden = new Float32Array(cfg.hiddenSize);
     for (let i = 0; i < cfg.hiddenSize; i++)
       hidden[i] = hiddenAfterAttn[i] + mlpOut[i];

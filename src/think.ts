@@ -94,9 +94,10 @@ function* linear(
   input: Float32Array,
   outDim: number,
   inDim: number,
-): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
+): Generator<EndThisTickStr | undefined, Float32Array<ArrayBuffer>, any> {
   const out = new Float32Array(outDim);
   for (let o = 0; o < outDim; o++) {
+    yield;
     const row = yield* readRowDequantized(cursor, weight, o, inDim);
     let sum = 0;
     for (let i = 0; i < inDim; i++) sum += row[i] * input[i];
@@ -158,7 +159,7 @@ function* attention(
   pos: number,
   cfg: ModelConfig,
   kvCache: KVCache,
-): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
+): Generator<EndThisTickStr | undefined, Float32Array<ArrayBuffer>, any> {
   const {
     numAttentionHeads,
     numKeyValueHeads,
@@ -270,7 +271,7 @@ function* mlp(
   layerWeights: LayerWeights,
   normedInput: Float32Array,
   cfg: ModelConfig,
-): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
+): Generator<EndThisTickStr | undefined, Float32Array<ArrayBuffer>, any> {
   const { hiddenSize, intermediateSize } = cfg;
   const gate = yield* linear(
     cursor,
@@ -340,7 +341,7 @@ function* forwardStep(
   tokenId: number,
   pos: number,
   kvCache: KVCache,
-): Generator<EndThisTickStr, Float32Array<ArrayBuffer>, any> {
+): Generator<EndThisTickStr | undefined, Float32Array<ArrayBuffer>, any> {
   let hidden = yield* getTokenEmbedding(
     cursor,
     weights.embedTokens,
@@ -425,7 +426,7 @@ function* generate(
   maxNewTokens: number,
   eosTokenId: number,
   callback: (token: number[]) => void,
-): Generator<EndThisTickStr, number[], any> {
+): Generator<EndThisTickStr | undefined, number[], any> {
   const kvCache: KVCache = {
     keys: Array.from({ length: cfg.numLayers }, () => []),
     values: Array.from({ length: cfg.numLayers }, () => []),
